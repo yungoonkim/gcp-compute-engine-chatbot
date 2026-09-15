@@ -54,3 +54,4 @@ Desktop.ini
 # Logs
 *.log
 logs/
+deployment_log.md
