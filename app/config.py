@@ -26,10 +26,28 @@ _load_env_file()
 
 def _fetch_from_secret_manager():
     """Fetch GEMINI_API_KEY from Google Cloud Secret Manager if running on GCP."""
-    secret_name = os.environ.get(
-        "GCP_SECRET_NAME",
-        "projects/976675812314/secrets/GEMINI_API_KEY/versions/latest"
-    )
+    secret_name = os.environ.get("GCP_SECRET_NAME", "").strip()
+
+    # If secret_name is not provided, resolve project ID dynamically from GCP environment
+    if not secret_name:
+        project_id = (
+            os.environ.get("GOOGLE_CLOUD_PROJECT")
+            or os.environ.get("GCP_PROJECT")
+            or os.environ.get("PROJECT_ID")
+            or ""
+        ).strip()
+        if not project_id:
+            try:
+                import google.auth
+                _, project_id = google.auth.default()
+            except Exception:
+                pass
+        if project_id:
+            secret_name = f"projects/{project_id}/secrets/GEMINI_API_KEY/versions/latest"
+
+    if not secret_name:
+        return ""
+
     if "/versions/" not in secret_name:
         secret_name = f"{secret_name}/versions/latest"
 

@@ -35,9 +35,18 @@ python3 -m venv /opt/chatbot/venv
 
 # 4. Retrieve GEMINI_API_KEY from Secret Manager
 echo "[4/6] Retrieving GEMINI_API_KEY from Secret Manager..."
+PROJECT_ID=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/project/project-id 2>/dev/null || true)
+if [ -z "$PROJECT_ID" ]; then
+    PROJECT_ID=$(gcloud config get-value project 2>/dev/null || true)
+fi
+
 SECRET_KEY=""
 for i in {1..5}; do
-    SECRET_KEY=$(gcloud secrets versions access latest --secret=GEMINI_API_KEY --project=976675812314 2>/dev/null || true)
+    if [ -n "$PROJECT_ID" ]; then
+        SECRET_KEY=$(gcloud secrets versions access latest --secret=GEMINI_API_KEY --project="${PROJECT_ID}" 2>/dev/null || true)
+    else
+        SECRET_KEY=$(gcloud secrets versions access latest --secret=GEMINI_API_KEY 2>/dev/null || true)
+    fi
     if [ -n "$SECRET_KEY" ]; then
         echo "Successfully retrieved GEMINI_API_KEY from Secret Manager!"
         break
@@ -48,9 +57,13 @@ done
 
 cat << EOF > /opt/chatbot/.env
 GEMINI_API_KEY=${SECRET_KEY}
-GCP_SECRET_NAME=projects/976675812314/secrets/GEMINI_API_KEY
+GCP_SECRET_NAME=projects/${PROJECT_ID}/secrets/GEMINI_API_KEY
 PORT=8000
 EOF
+
+# Create dedicated non-root service user for enhanced security
+id -u chatbot &>/dev/null || useradd -r -s /bin/false -d /opt/chatbot chatbot
+chown -R chatbot:chatbot /opt/chatbot
 chmod 600 /opt/chatbot/.env
 
 # 5. Create and configure systemd service
@@ -62,7 +75,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+User=chatbot
+Group=chatbot
 WorkingDirectory=/opt/chatbot
 EnvironmentFile=/opt/chatbot/.env
 ExecStart=/opt/chatbot/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
