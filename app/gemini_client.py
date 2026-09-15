@@ -3,15 +3,17 @@ import logging
 from typing import AsyncGenerator, Dict, List, Optional
 import httpx
 
-from app.config import GEMINI_API_BASE_URL, GEMINI_API_KEY, DEFAULT_MODEL_ID
+from app.config import GEMINI_API_BASE_URL, GEMINI_API_KEY, DEFAULT_MODEL_ID, get_gemini_api_key
 
 logger = logging.getLogger("gemini_chatbot")
 
 class GeminiClient:
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or GEMINI_API_KEY
+        self.api_key = api_key or get_gemini_api_key()
 
     def is_configured(self) -> bool:
+        if not self.api_key:
+            self.api_key = get_gemini_api_key()
         return bool(self.api_key)
 
     def _prepare_contents(self, messages: List[Dict[str, str]]) -> List[Dict]:

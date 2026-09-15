@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app.config import AVAILABLE_MODELS, DEFAULT_MODEL_ID, GEMINI_API_KEY
+from app.config import AVAILABLE_MODELS, DEFAULT_MODEL_ID, GEMINI_API_KEY, get_gemini_api_key
 from app.gemini_client import GeminiClient
 
 app = FastAPI(
@@ -47,7 +47,7 @@ class ChatRequest(BaseModel):
 async def health_check():
     return {
         "status": "ok",
-        "api_key_configured": bool(GEMINI_API_KEY),
+        "api_key_configured": bool(get_gemini_api_key()),
         "default_model": DEFAULT_MODEL_ID
     }
 
@@ -56,7 +56,7 @@ async def get_models():
     return {
         "models": AVAILABLE_MODELS,
         "default": DEFAULT_MODEL_ID,
-        "api_key_configured": bool(GEMINI_API_KEY)
+        "api_key_configured": bool(get_gemini_api_key())
     }
 
 @app.post("/api/chat")
