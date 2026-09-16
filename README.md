@@ -36,9 +36,9 @@ Google Gemini 공식 웹([gemini.google.com/app](https://gemini.google.com/app?h
 
 ```mermaid
 flowchart LR
-    User["사용자 웹 브라우저<br/>(PC / 모바일)"] -->|"HTTPS (포트 443)<br/>34.63.148.160.sslip.io"| Nginx["Nginx 리버스 프록시<br/>(Let's Encrypt SSL)"]
-    Nginx -->|"HTTP (포트 8000)<br/>proxy_buffering off"| FastAPI["FastAPI 백엔드<br/>(Uvicorn Service)"]
-    FastAPI -->|"API Key 자동 획득"| SecretMgr["GCP Secret Manager<br/>(projects/976675812314/.../GEMINI_API_KEY)"]
+    User["사용자 웹 브라우저<br/>(PC / 모바일)"] -->|"HTTPS (포트 443)<br/>&lt;YOUR_EXTERNAL_IP&gt;.sslip.io"| Nginx["Nginx 리버스 프록시<br/>(Let's Encrypt SSL)"]
+    Nginx -->|"내부 로컬 통신 (127.0.0.1:8000)<br/>proxy_buffering off"| FastAPI["FastAPI 백엔드<br/>(Uvicorn Service)"]
+    FastAPI -->|"API Key 자동 획득"| SecretMgr["GCP Secret Manager<br/>(projects/&lt;YOUR_PROJECT_ID&gt;/.../GEMINI_API_KEY)"]
     FastAPI -->|"SSE 스트리밍 요청"| GeminiAPI["Google Gemini API<br/>(generativelanguage.googleapis.com)"]
 ```
 
@@ -70,14 +70,14 @@ flowchart LR
 flowchart TD
     Browser["사용자 브라우저"] -->|"1. HTTP 접속 (포트 80)"| NginxRedirect["Nginx 301 Redirect"]
     NginxRedirect -->|"2. HTTPS 자동 전환 (포트 443)"| NginxSSL["Nginx 역방향 프록시<br/>(Let's Encrypt SSL Termination)"]
-    DNS["sslip.io 와일드카드 DNS<br/>(34.63.148.160.sslip.io)"] -.->|"도메인 해석"| Browser
+    DNS["sslip.io 와일드카드 DNS<br/>(&lt;YOUR_EXTERNAL_IP&gt;.sslip.io)"] -.->|"도메인 해석"| Browser
     Certbot["Certbot & ACME Timer<br/>(90일 주기 자동 갱신)"] -->|"인증서 갱신"| NginxSSL
-    NginxSSL -->|"3. 실시간 무버퍼링 스트리밍 (포트 8000)"| FastAPI["FastAPI (Uvicorn)"]
+    NginxSSL -->|"3. 실시간 무버퍼링 스트리밍 (127.0.0.1:8000)"| FastAPI["FastAPI (Uvicorn)"]
 ```
 
 #### ① 와일드카드 공인 DNS 매핑 (`sslip.io`)
-* **문제점**: Let's Encrypt를 비롯한 공인 인증기관(CA)은 숫자로 된 순수 IP 주소(`34.63.148.160`)에 대해 SSL 인증서를 발급하지 않으며, 유효한 도메인(FQDN)을 요구합니다.
-* **적용 기술**: IP 주소를 도메인 이름으로 즉시 매핑해 주는 무료 공인 와일드카드 DNS 서비스인 **`sslip.io`**를 연동하여 `34.63.148.160.sslip.io` 도메인을 생성했습니다.
+* **문제점**: Let's Encrypt를 비롯한 공인 인증기관(CA)은 숫자로 된 순수 IP 주소(예: `<YOUR_EXTERNAL_IP>`)에 대해 직접 SSL 인증서를 발급하지 않으며, 유효한 도메인(FQDN)을 요구합니다.
+* **적용 기술**: IP 주소를 도메인 이름으로 즉시 매핑해 주는 무료 공인 와일드카드 DNS 서비스인 **`sslip.io`**를 연동하여 `<YOUR_EXTERNAL_IP>.sslip.io` 도메인을 생성했습니다.
 
 #### ② Let's Encrypt & Certbot (공인 SSL 인증서 자동 발급 및 갱신)
 * **적용 기술**: 전 세계 모든 최신 브라우저가 신뢰하는 비영리 공인 인증기관인 **Let's Encrypt**로부터 SSL 인증서를 발급받았습니다.
@@ -100,26 +100,28 @@ flowchart TD
 
 ```
 gcp-compute-engine-chatbot/
-├── app/
-│   ├── static/
-│   │   ├── css/
-│   │   │   └── style.css                 # Gemini 공식 테마 및 반응형 디자인
-│   │   ├── js/
-│   │   │   └── app.js                   # 스트리밍, 모델 전환, 음성인식, 마크다운 처리
-│   │   ├── gemini-icon.svg              # 공식 Gemini 아이콘
-│   │   └── index.html                   # 메인 챗봇 웹 UI
-│   ├── __init__.py
-│   ├── config.py                        # 환경변수/.env/Secret Manager 로드 로직
-│   └── gemini_client.py                 # Gemini 비동기 SSE 스트리밍 클라이언트
-├── main.py                              # FastAPI 웹 서버 및 REST 엔드포인트
-├── requirements.txt                     # 파이썬 의존성 패키지 목록
-├── run.bat                              # 윈도우 로컬 원클릭 실행 스크립트
-├── startup-script.sh                    # Compute Engine VM 자동 배포 초기화 스크립트
-├── nginx-ssl.conf                       # Nginx HTTPS 및 SSE 역방향 프록시 설정
-├── deployment_log.md                    # Compute Engine 배포 및 작업 로그
-├── gcp_cloud_run_manual_guide.md        # GCP 웹 콘솔 기반 Cloud Run 배포 가이드
-├── compute_engine_example.ipynb         # 리전별 비용 분석 및 GCE 실습 노트북
-└── README.md                            # 프로젝트 종합 안내서
+├── compute_engine/                      # GCP Compute Engine 챗봇 애플리케이션 및 배포 설정
+│   ├── app/
+│   │   ├── static/
+│   │   │   ├── css/
+│   │   │   │   └── style.css            # Gemini 공식 테마 및 반응형 디자인
+│   │   │   ├── js/
+│   │   │   │   └── app.js              # 스트리밍, 모델 전환, 음성인식, 마크다운 처리
+│   │   │   ├── gemini-icon.svg         # 공식 Gemini 아이콘
+│   │   │   └── index.html              # 메인 챗봇 웹 UI
+│   │   ├── __init__.py
+│   │   ├── config.py                   # 환경변수/.env/Secret Manager 로드 로직
+│   │   └── gemini_client.py            # Gemini 비동기 SSE 스트리밍 클라이언트
+│   ├── main.py                         # FastAPI 웹 서버 및 REST 엔드포인트
+│   ├── requirements.txt                # 파이썬 의존성 패키지 목록
+│   ├── run.bat                         # 서브폴더 로컬 실행 스크립트
+│   ├── startup-script.sh               # Compute Engine VM 자동 배포 초기화 스크립트
+│   └── nginx-ssl.conf                  # Nginx HTTPS 및 SSE 역방향 프록시 설정
+├── run.bat                             # 루트 원클릭 실행 래퍼 (compute_engine/run.bat 실행)
+├── deployment_log.md                   # Compute Engine 배포 및 작업 로그
+├── gcp_cloud_run_manual_guide.md       # GCP 웹 콘솔 기반 Cloud Run 배포 가이드
+├── compute_engine_example.ipynb        # 리전별 비용 분석 및 GCE 실습 노트북
+└── README.md                           # 프로젝트 종합 안내서
 ```
 
 ---
@@ -133,17 +135,20 @@ gcp-compute-engine-chatbot/
 ### 2. 실행 방법
 
 #### Windows 원클릭 실행:
-폴더 내 **`run.bat`** 파일을 더블클릭하면 의존성을 확인하고 서버(`http://localhost:8000`)가 자동 실행됩니다.
+프로젝트 루트 또는 `compute_engine/` 폴더 내 **`run.bat`** 파일을 더블클릭하면 의존성을 확인하고 서버(`http://localhost:8000`)가 자동 실행됩니다.
 
 #### 수동 터미널 실행:
 ```bash
-# 1. 의존성 패키지 설치
+# 1. compute_engine 폴더로 이동
+cd compute_engine
+
+# 2. 의존성 패키지 설치
 pip install -r requirements.txt
 
-# 2. .env 파일 생성 (또는 OS 환경변수 등록)
+# 3. .env 파일 생성 (또는 OS 환경변수 등록)
 echo GEMINI_API_KEY=your_gemini_api_key_here > .env
 
-# 3. 서버 실행
+# 4. 서버 실행
 python main.py
 ```
 브라우저에서 `http://localhost:8000`으로 접속합니다.
@@ -155,17 +160,20 @@ python main.py
 주피터 노트북([compute_engine_example.ipynb](compute_engine_example.ipynb))의 글로벌 요금 비교를 통해 최저가 리전에 배포되어 상시 운영 중입니다.
 
 ### 1. 인프라 운영 사양
-- **프로젝트**: `iceu-songpa11` (Project Number: `976675812314`)
+- **프로젝트**: `<YOUR_PROJECT_ID>` (Project Number: `<YOUR_PROJECT_NUMBER>`)
 - **인스턴스 명**: `chatbot-instance`
 - **리전 / 영역**: `us-central1` / `us-central1-a` (Iowa - 글로벌 최저가 그룹, 월 $25.46)
 - **머신 사양**: `e2-medium` (2 vCPU, 4GB RAM), 10GB `pd-balanced` (Debian 13 Trixie)
-- **보안/인증서**: Let's Encrypt 정식 SSL 인증서 발급 완료 (유효기간: 2026-12-14, 자동 갱신)
+- **보안/인증서**: Let's Encrypt 정식 SSL 인증서 발급 완료 (Certbot 기반 90일 주기 자동 갱신)
 - **백업 정책**: 일일 스냅샷 보관 정책(`default-schedule-1`, 최대 14일) 연결
 
 ### 2. 서비스 접속 주소
-- **HTTPS 보안 접속 (권장)**: **[https://34.63.148.160.sslip.io](https://34.63.148.160.sslip.io)** (자물쇠 🔒 정상 활성화)
-- **HTTP 기본 접속**: `http://34.63.148.160` (자동으로 HTTPS로 301 리디렉션)
-- **API 직접 포트**: `http://34.63.148.160:8000`
+- **HTTPS 보안 접속 (권장)**: **`https://<YOUR_EXTERNAL_IP>.sslip.io`** (SSL 암호화 🔒 정상 활성화)
+- **HTTP 기본 접속**: `http://<YOUR_EXTERNAL_IP>` (Nginx에서 자동으로 HTTPS로 301 리디렉션)
+
+> [!TIP]
+> **보안 권고사항 (포트 하드닝 / Port Hardening)**:
+> Nginx 리버스 프록시(포트 443)가 정상 구축된 이후에는 백엔드 직접 포트인 `TCP 8000`을 방화벽 규칙에서 제거하여 외부 노출을 차단하고, 오직 HTTPS(포트 443)를 통해서만 진입하도록 구성하는 것이 안전합니다.
 
 ---
 
@@ -173,10 +181,10 @@ python main.py
 
 보안을 위해 API 키를 소스코드나 설정 파일에 하드코딩하지 않고, **GCP Secret Manager**와 동적으로 연동합니다.
 
-- **비밀 리소스 경로**: `projects/976675812314/secrets/GEMINI_API_KEY/versions/latest`
-- **우선순위 체계 ([app/config.py](app/config.py))**:
+- **비밀 리소스 경로**: `projects/<YOUR_PROJECT_ID>/secrets/GEMINI_API_KEY/versions/latest`
+- **우선순위 체계 ([compute_engine/app/config.py](compute_engine/app/config.py))**:
   1. OS 시스템 환경변수 (`GEMINI_API_KEY` / `GOOGLE_API_KEY`)
-  2. 로컬 `.env` 파일
+  2. 로컬 `.env` 파일 (Git 커밋 제외 필수)
   3. **GCP Secret Manager API** (Compute Engine 서비스 계정 `roles/secretmanager.secretAccessor` 권한을 통해 자동 조회)
 
 ---
@@ -197,7 +205,7 @@ python main.py
 ### 1. VM 접속 및 서비스 로그 확인
 ```bash
 # SSH 접속
-gcloud compute ssh chatbot-instance --zone=us-central1-a --project=iceu-songpa11
+gcloud compute ssh chatbot-instance --zone=us-central1-a --project=<YOUR_PROJECT_ID>
 
 # 챗봇 백엔드 서비스 상태 확인
 sudo systemctl status chatbot.service
@@ -213,13 +221,13 @@ sudo systemctl status nginx
 테스트 완료 후 클라우드 요금이 청구되지 않도록 리소스를 정리할 수 있습니다:
 ```bash
 # 1) VM 인스턴스 삭제 (부팅 디스크 함께 삭제됨)
-gcloud compute instances delete chatbot-instance --zone=us-central1-a --project=iceu-songpa11 --quiet
+gcloud compute instances delete chatbot-instance --zone=us-central1-a --project=<YOUR_PROJECT_ID> --quiet
 
 # 2) 스냅샷 스케줄 정책 삭제
-gcloud compute resource-policies delete default-schedule-1 --region=us-central1 --project=iceu-songpa11 --quiet
+gcloud compute resource-policies delete default-schedule-1 --region=us-central1 --project=<YOUR_PROJECT_ID> --quiet
 
 # 3) 방화벽 규칙 삭제
-gcloud compute firewall-rules delete default-allow-chatbot --project=iceu-songpa11 --quiet
+gcloud compute firewall-rules delete default-allow-chatbot --project=<YOUR_PROJECT_ID> --quiet
 ```
 
 ---
