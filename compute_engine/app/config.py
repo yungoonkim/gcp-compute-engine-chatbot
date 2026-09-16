@@ -5,6 +5,7 @@ def _load_env_file():
     paths = [
         os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),
         os.path.join(os.getcwd(), ".env"),
+        "/opt/chatbot/compute_engine/.env",
         "/opt/chatbot/.env"
     ]
     for env_path in paths:

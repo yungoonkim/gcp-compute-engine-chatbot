@@ -25,13 +25,13 @@ else
     git pull origin main
 fi
 
-cd /opt/chatbot
+cd /opt/chatbot/compute_engine
 
 # 3. Create Python Virtual Environment & install requirements
 echo "[3/6] Setting up Python virtual environment..."
 python3 -m venv /opt/chatbot/venv
 /opt/chatbot/venv/bin/pip install --upgrade pip
-/opt/chatbot/venv/bin/pip install -r requirements.txt
+/opt/chatbot/venv/bin/pip install -r /opt/chatbot/compute_engine/requirements.txt
 
 # 4. Retrieve GEMINI_API_KEY from Secret Manager
 echo "[4/6] Retrieving GEMINI_API_KEY from Secret Manager..."
@@ -55,16 +55,19 @@ for i in {1..5}; do
     sleep 3
 done
 
-cat << EOF > /opt/chatbot/.env
+cat << EOF > /opt/chatbot/compute_engine/.env
 GEMINI_API_KEY=${SECRET_KEY}
 GCP_SECRET_NAME=projects/${PROJECT_ID}/secrets/GEMINI_API_KEY
 PORT=8000
 EOF
 
+# Provide backward compatibility link to /opt/chatbot/.env
+cp -f /opt/chatbot/compute_engine/.env /opt/chatbot/.env
+
 # Create dedicated non-root service user for enhanced security
 id -u chatbot &>/dev/null || useradd -r -s /bin/false -d /opt/chatbot chatbot
 chown -R chatbot:chatbot /opt/chatbot
-chmod 600 /opt/chatbot/.env
+chmod 600 /opt/chatbot/compute_engine/.env /opt/chatbot/.env
 
 # 5. Create and configure systemd service
 echo "[5/6] Creating systemd service unit..."
@@ -77,8 +80,8 @@ After=network.target
 Type=simple
 User=chatbot
 Group=chatbot
-WorkingDirectory=/opt/chatbot
-EnvironmentFile=/opt/chatbot/.env
+WorkingDirectory=/opt/chatbot/compute_engine
+EnvironmentFile=/opt/chatbot/compute_engine/.env
 ExecStart=/opt/chatbot/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=5

@@ -100,26 +100,33 @@ flowchart TD
 
 ```
 gcp-compute-engine-chatbot/
-├── compute_engine/                      # GCP Compute Engine 챗봇 애플리케이션 및 배포 설정
+├── compute_engine/                      # GCP Compute Engine(VM) 챗봇 앱 및 배포 설정
 │   ├── app/
-│   │   ├── static/
-│   │   │   ├── css/
-│   │   │   │   └── style.css            # Gemini 공식 테마 및 반응형 디자인
-│   │   │   ├── js/
-│   │   │   │   └── app.js              # 스트리밍, 모델 전환, 음성인식, 마크다운 처리
-│   │   │   ├── gemini-icon.svg         # 공식 Gemini 아이콘
-│   │   │   └── index.html              # 메인 챗봇 웹 UI
+│   │   ├── static/ (css, js, svg, index.html)
 │   │   ├── __init__.py
-│   │   ├── config.py                   # 환경변수/.env/Secret Manager 로드 로직
-│   │   └── gemini_client.py            # Gemini 비동기 SSE 스트리밍 클라이언트
-│   ├── main.py                         # FastAPI 웹 서버 및 REST 엔드포인트
-│   ├── requirements.txt                # 파이썬 의존성 패키지 목록
-│   ├── run.bat                         # 서브폴더 로컬 실행 스크립트
-│   ├── startup-script.sh               # Compute Engine VM 자동 배포 초기화 스크립트
-│   └── nginx-ssl.conf                  # Nginx HTTPS 및 SSE 역방향 프록시 설정
+│   │   ├── config.py
+│   │   └── gemini_client.py
+│   ├── main.py                         # FastAPI 웹 서버 (포트 8000)
+│   ├── requirements.txt
+│   ├── run.bat
+│   ├── startup-script.sh               # VM 부팅 초기화 스크립트
+│   └── nginx-ssl.conf                  # Nginx HTTPS 프록시 설정
+├── cloud_run/                           # GCP Cloud Run (API Key / Secret Manager 방식)
+│   ├── app/ (static, config, gemini_client)
+│   ├── main.py, requirements.txt, Dockerfile, .dockerignore
+│   ├── deploy.sh, run.bat, README.md
+├── cloud_run2/                          # [NEW] GCP Cloud Run (ADC / IAM 무비밀키 방식)
+│   ├── app/ (static, config, gemini_client)
+│   ├── main.py                         # FastAPI 웹 서버 (Vertex AI Model API)
+│   ├── requirements.txt                # 경량 패키지 (Secret Manager 의존성 제거)
+│   ├── Dockerfile, .dockerignore
+│   ├── deploy.sh                       # 순수 IAM 기반 Cloud Run 배포 스크립트
+│   ├── run.bat                         # 로컬 ADC 테스트 스크립트
+│   └── README.md                       # ADC 인증 모드 전용 상세 가이드
 ├── run.bat                             # 루트 원클릭 실행 래퍼 (compute_engine/run.bat 실행)
 ├── deployment_log.md                   # Compute Engine 배포 및 작업 로그
 ├── gcp_cloud_run_manual_guide.md       # GCP 웹 콘솔 기반 Cloud Run 배포 가이드
+├── gcp_vm_vs_cloud_run_architecture_guide.md # VM vs Cloud Run 아키텍처 비교 가이드
 ├── compute_engine_example.ipynb        # 리전별 비용 분석 및 GCE 실습 노트북
 └── README.md                           # 프로젝트 종합 안내서
 ```
@@ -233,5 +240,6 @@ gcloud compute firewall-rules delete default-allow-chatbot --project=<YOUR_PROJE
 ---
 
 ## 📖 추가 가이드 문서
+- **[gcp_vm_vs_cloud_run_architecture_guide.md](gcp_vm_vs_cloud_run_architecture_guide.md)**: Compute Engine(VM)과 Cloud Run의 하드웨어 리소스 할당, 디스크 아키텍처, 비용 비교 가이드
 - **[gcp_cloud_run_manual_guide.md](gcp_cloud_run_manual_guide.md)**: 사용하지 않을 때 비용이 $0인 완전 무료 서버리스(Cloud Run) 배포 콘솔 가이드
 - **[deployment_log.md](deployment_log.md)**: Compute Engine 인스턴스 생성, IAM 권한, SSL 구성 작업 히스토리 및 세부 로그
